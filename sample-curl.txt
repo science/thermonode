@@ -1,0 +1,1 @@
+curl -is http://localhost:8080/watchfile/test.js -H 'connection: close'

@@ -25,7 +25,7 @@ var dbgmsg = require('util').debug;
 
 // 0 = none, big number = output lots of stuff
 var DEBUG_LEVEL = 10;
-var MAX_WATCH_WAIT = 12*60*60 // each file watch process should wait no longer than 12 hours before giving up and just handing over the file as-is
+var MAX_WATCH_WAIT_MSEC = 12*60*60*1000 // each file watch process should wait no longer than 12 hours before giving up and just handing over the file as-is
 
 // global file
 // Holds semaphore locks for each file being watched
@@ -82,16 +82,18 @@ function watchFile(filename, req, res, next) {
 // kicks off long running process to watch for file changes
 function watchFileResponse(req, res, next) {
 
+  //res.setTimeout(MAX_WATCH_WAIT_MSEC);
+  res.setTimeout(2000);
   res.on('close', function(){dbg('unexpected close');});
 
   filename = req.params.name;
   dbg('watchFileResponse: '+ filename);
   if (filename && fs.existsSync(filename)) {
-    dbg('watch');
+    dbg('Watching file: '+filename);
     watchFile(filename, req, res, next);
   }
   else {
-    dbg('watch not found');
+    dbg('Watch file not found:' + filename||'[undefined]');
     res.statusCode = 404;
     //response.send('{"code": "FileNotFound", "message":"File specified could not be found"}');
     res.end();
