@@ -14,37 +14,24 @@ If HTTP client calls /now, the file is sent immediately
 2) Allow authorized clients to update configuration files (to permit mobile updates)
    Possibly this will be implemented with FTP updates in the short term?
 
+Node.js installation requirements
+  restify
+  semaphore
+  nodeunit
+
 */
 
 // API framework
 var restify = require('restify');
 var fs = require('fs');
 var StringDecoder = require('string_decoder').StringDecoder;
-var dbgmsg = require('util').debug;
+var dbg = require('./utils').debuggerMsg;
 
-
-// 0 = none, big number = output lots of stuff
-var DEBUG_LEVEL = 10;
-var MAX_WATCH_WAIT_MSEC = 12*60*60*1000 // each file watch process should wait no longer than 12 hours before giving up and just handing over the file as-is
+var MAX_WATCH_WAIT_MSEC = 12*60*60*1000 // each file watch process should wait no longer than 12 hours before giving up and returning nothing
 
 // global file
 // Holds semaphore locks for each file being watched
 var files = {};
-
-// from http://stackoverflow.com/questions/3885817/how-to-check-if-a-number-is-float-or-integer
-function isInt(n) {
-   return n===+n && n===(n|0);
-}
-//write debug messages to stderr using node debug log method
-function dbg(debugMsg, level){
-  if (isInt(level)) { //do nothing
-  }
-  else { level = 10}
-  //print debug message if debuggingLevel warrants it
-  if (DEBUG_LEVEL >= level){
-    dbgmsg(debugMsg);
-  }
-}
 
 // Pass the file contents back to response object
 //   Since this function gets called for *every* change event we have
@@ -55,14 +42,16 @@ var getFileOnChange = function (event,filename){
   if (filename && fs.existsSync(filename)) {
     var fileInfo = fs.statSync(filename);
     if (fileInfo.size > 0) {
-      // We have a file with content, so we invoke the semaphore we created earlier so we are the only change event
-      // that is working to return the file contents into the response object
-      files[filename].lock.take(function() {
+      // We have determined we are processing a file with content (as opposed to a delete operation during an update).
+      // So we invoke the semaphore we created earlier so we are the only change event
+      // that is processing the file contents for this response object
+      var semaphore = files[filename].lock;
+      semaphore.take(function() {
         // get file contents
         var data = fs.readFileSync(filename, {"encoding":"utf8"});
-        var res = files[filename].res;
-        res.write(data);
-        res.end();
+        var response = files[filename].res;
+        response.write(data);
+        response.end();
       });
     }
   }
@@ -81,9 +70,7 @@ function watchFile(filename, req, res, next) {
 
 // kicks off long running process to watch for file changes
 function watchFileResponse(req, res, next) {
-
-  //res.setTimeout(MAX_WATCH_WAIT_MSEC);
-  res.setTimeout(2000);
+  res.setTimeout(MAX_WATCH_WAIT_MSEC);
   res.on('close', function(){dbg('unexpected close');});
 
   filename = req.params.name;
