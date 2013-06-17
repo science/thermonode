@@ -3,8 +3,6 @@ var dbgmsg = require('util').debug;
 // 0 = none, big number = output lots of stuff
 var DEBUG_LEVEL = 10;
 
-var comparators =
-
 // from http://stackoverflow.com/questions/3885817/how-to-check-if-a-number-is-float-or-integer
 var isInt = function (n) {
    return n===+n && n===(n|0);
@@ -21,4 +19,4 @@ var debuggerMsg = function (debugMsg, level){
     dbgmsg(debugMsg);
   }
 }
-exports.debuggerMsg
+exports.debuggerMsg = debuggerMsg;

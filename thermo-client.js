@@ -7,12 +7,8 @@ based on inputs from the thermometer compared to the configuration file informat
 
 var restify = require('restify');
 
-var file = process.argv[2];
-var client = restify.createJsonClient({url:"http://localhost:8080"});
 
-
-
-client.get("/watchfile/"+file, function(err,req,res,obj){
+var receiveConfigFileFromURL = function(err,req,res,obj){
   if (err) {
     console.log(err);
     if (err.code == 'ECONNRESET') {
@@ -26,8 +22,16 @@ client.get("/watchfile/"+file, function(err,req,res,obj){
     res.socket.end();
   }
   req.end();
+}
 
-});
+
+function initiateGetConfigFileFromURL(server, port, path, file){
+  if (port === undefined) {port = 80}
+  var file = file;
+  var client = restify.createJsonClient({url:"http://"+server+":"+port});
+  client.get(path+"/"+file, receiveConfigFileFromURL);
+}
+
 
 /*
 System installation requirements

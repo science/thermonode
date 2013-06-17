@@ -21,17 +21,22 @@ Node.js installation requirements
 
 */
 
-// API framework
+// includes
 var restify = require('restify');
 var fs = require('fs');
+var util = require('util');
 var StringDecoder = require('string_decoder').StringDecoder;
 var dbg = require('./utils').debuggerMsg;
 
-var MAX_WATCH_WAIT_MSEC = 12*60*60*1000 // each file watch process should wait no longer than 12 hours before giving up and returning nothing
+// constants
+var FILE_WATCH_TIMEOUT_MSEC = 12*60*60*1000 // each file watch process should wait no longer than 12 hours before giving up and returning nothing
+var HTTP_KEEP_ALIVE_TIMEOUT_MSEC = 4 * 1000 //
 
-// global file
+// global files
 // Holds semaphore locks for each file being watched
 var files = {};
+var server = restify.createServer();
+
 
 // Pass the file contents back to response object
 //   Since this function gets called for *every* change event we have
@@ -70,7 +75,7 @@ function watchFile(filename, req, res, next) {
 
 // kicks off long running process to watch for file changes
 function watchFileResponse(req, res, next) {
-  res.setTimeout(MAX_WATCH_WAIT_MSEC);
+  res.setTimeout(FILE_WATCH_TIMEOUT_MSEC);
   res.on('close', function(){dbg('unexpected close');});
 
   filename = req.params.name;
@@ -87,12 +92,45 @@ function watchFileResponse(req, res, next) {
   }
 }
 
-var server = restify.createServer();
-// restify provided hack to manage curl as a client
-server.pre(restify.pre.userAgentConnection());
-server.get('/watchfile/:name', watchFileResponse);
-server.head('/watchfile/:name', watchFileResponse);
+var startServer = function () {
+  // restify provided hack to manage curl as a client
+  server.pre(restify.pre.userAgentConnection());
+  server.get('/watchfile/:name', watchFileResponse);
+  server.head('/watchfile/:name', watchFileResponse);
 
-server.listen(8080, function() {
-  console.log('%s listening at %s', server.name, server.url);
+  server.listen(8080, function() {
+    console.log('%s listening at %s', server.name, server.url);
+    process.send('started');
+  });
+  //Set the keep-alive timeout for all connections
+  server.addListener("connection",function(stream) {
+      stream.setTimeout(HTTP_KEEP_ALIVE_TIMEOUT_MSEC);
+  });
+}
+
+
+var stopServer = function (){
+  console.log('Shutdown starting: %s listening at %s', server.name, server.url);
+  server.on('close', function() {
+    console.log('Shutdown complete for server %s', server.name)
+    process.send('stopped');
+  });
+  server.close();
+  //wait 1 sec longer than http keep-alive timeout and then force exit from process
+  setTimeout(function(){dbg('Server failed to shutdown. Terminating process.');process.exit();},HTTP_KEEP_ALIVE_TIMEOUT_MSEC+1000);
+}
+
+
+// dispatch child_process incoming messages
+process.on('message', function(msg){
+  if (msg == 'start'){
+    startServer();
+  }
+  else if (msg == 'stop'){
+    stopServer();
+  }
+  else {
+    dbg('Unknown message received: '+util.inspect(msg))
+  };
 });
+
