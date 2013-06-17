@@ -1,62 +1,74 @@
-//var nodeunit = require('nodeunit');
+var nodeunit = require('nodeunit');
+var fs = require('fs');
 var util = require('util');
-var thermoServer = require('../thermo-server');
+var utils = require('../utils');
 var dbg = require('../utils').debuggerMsg;
+var child_process = require('child_process');
+var restify = require('restify');
+var thermoClient = require('../thermo-client');
 
-
-//var retval = thermoServer.foo();
-//console.log(retval);
+// var server = child_process.fork('../thermo-server');
+// server.on('message', function(msg) {
+//   if (msg == 'started'){
+//     console.log('msg: '+msg);
+//     server.send('stop');
+//   }
+//   else if (msg == 'stopped'){
+//     console.log('server stopped');
+//     server.disconnect();
+//     server.unref();
+//   }
+//   else {dbg('Unknown msg: '+util.inspect(msg));};
+// });
 //
-//var server = thermoServer.start();
-//console.log('complete');
-//server.on('listening', function(){console.log('ready'); server.stop;});
+// server.on('exit', function() {dbg('server p_exit')});
+//
+// server.send('start');
+// dbg('post start');
+//
 
-var server = require('child_process').fork('../thermo-server');
 
-dbg('pre start');
-server.on('message', function(msg) {
-  if (msg == 'started'){
-    console.log('msg: '+msg);
-    server.send('stop');
-  }
-  else if (msg == 'stopped'){
-    console.log('server stopped');
-    server.disconnect();
-    server.unref();
-  }
-  else {dbg('Unknown msg: '+util.inspect(msg));};
-});
+// thermoServer = require('child_process').fork('../thermo-server');
+// thermoServer.on('message', function(msg) {
+//   if (msg=='started')
+//     {dbg('server started');}
+//   });
+// thermoServer.send('start');
 
-server.on('exit', function() {dbg('server p_exit')});
-
-server.send('start');
-dbg('post start');
-
-//var cb = function(){console.log('ready'); thermoServer.stop();}
-//server = thermoServer.start();
-//server.on('listening', );
 
 
 //exports['read'] = nodeunit.testCase({
-//
-//  setUp: function () {
-//    console.log('start');
-//    this._thermoServer = thermoServer.start();
-//    this.foo="bar";
-//    console.log('start 2');
-//  },
-//    tearDown: function () {
-//    console.log('stop');
-//    thermoServer.stop();
-//    console.log('stop 2');
-//  },
-//  'test1': function (test) {
-//    console.log('11 '+this.foo);
-//    test.done();
-//
-////  this._thermoServer.on('listening'){
-////    test.equal(2,2);
-////    test.done();
-////    }
-//  }
-//});
+module.exports = {
+  setUp: function (callback) {
+    var file = 'test.json';
+    this.testFilename = file;
+    utils.copyFile('test.json.orig','test.json',function(){
+    callback();
+    });
+  },
+  tearDown: function (callback) {
+    fs.unlinkSync(this.testFilename);
+    callback();
+  },
+  test1: function (test) {
+    var file = this.testFilename;
+    thermoClient.getConfigFileFromURL('localhost','8080','/watchfile',file, function(obj){
+      dbg(util.inspect(obj));
+      test.done();
+    });
+    setTimeout(function() {utils.touchFileSync(file)}, 500);
+  },
+   test2: function (test) {
+     test.equal(2,2);
+     test.done();
+   }
+};
+
+
+// thermoServer.send('stop');
+// thermoServer.on('message', function(msg) {
+//   if (msg=='stopped') {
+//     thermoServer.disconnect();
+//     thermoServer.unref();
+//    }
+// });

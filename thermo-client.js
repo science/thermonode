@@ -6,6 +6,9 @@ based on inputs from the thermometer compared to the configuration file informat
 */
 
 var restify = require('restify');
+var dbg = require('./utils').debuggerMsg;
+var thermoServer = require('./thermo-server');
+var testCallback = null;
 
 
 var receiveConfigFileFromURL = function(err,req,res,obj){
@@ -22,15 +25,21 @@ var receiveConfigFileFromURL = function(err,req,res,obj){
     res.socket.end();
   }
   req.end();
+  if (typeof testCallback == 'function') {testCallback(obj);};
 }
 
 
-function initiateGetConfigFileFromURL(server, port, path, file){
-  if (port === undefined) {port = 80}
+var getConfigFileFromURL = function(server, port, path, file, callback){
+  if (port === undefined) {port = '80'}
   var file = file;
   var client = restify.createJsonClient({url:"http://"+server+":"+port});
+  if (typeof callback == 'function') {testCallback = callback};
   client.get(path+"/"+file, receiveConfigFileFromURL);
 }
+
+
+exports.getConfigFileFromURL = getConfigFileFromURL;
+
 
 
 /*

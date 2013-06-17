@@ -55,6 +55,7 @@ var getFileOnChange = function (event,filename){
         // get file contents
         var data = fs.readFileSync(filename, {"encoding":"utf8"});
         var response = files[filename].res;
+        dbg('Returning new contents: '+filename);
         response.write(data);
         response.end();
       });
@@ -92,7 +93,7 @@ function watchFileResponse(req, res, next) {
   }
 }
 
-var startServer = function () {
+var startServer = function (callBack) {
   // restify provided hack to manage curl as a client
   server.pre(restify.pre.userAgentConnection());
   server.get('/watchfile/:name', watchFileResponse);
@@ -100,7 +101,8 @@ var startServer = function () {
 
   server.listen(8080, function() {
     console.log('%s listening at %s', server.name, server.url);
-    process.send('started');
+    if (typeof process.send == 'function'){process.send('started');};
+    if (typeof callBack == 'function'){callBack();};
   });
   //Set the keep-alive timeout for all connections
   server.addListener("connection",function(stream) {
@@ -108,22 +110,22 @@ var startServer = function () {
   });
 }
 
-
-var stopServer = function (){
+var stopServer = function (callBack){
   console.log('Shutdown starting: %s listening at %s', server.name, server.url);
   server.on('close', function() {
     console.log('Shutdown complete for server %s', server.name)
-    process.send('stopped');
+    if (typeof process.send == 'function'){process.send('stopped');};
+    if (typeof callBack == 'function'){callBack();};
   });
   server.close();
   //wait 1 sec longer than http keep-alive timeout and then force exit from process
   setTimeout(function(){dbg('Server failed to shutdown. Terminating process.');process.exit();},HTTP_KEEP_ALIVE_TIMEOUT_MSEC+1000);
 }
 
-
 // dispatch child_process incoming messages
 process.on('message', function(msg){
   if (msg == 'start'){
+    dbg('start');
     startServer();
   }
   else if (msg == 'stop'){
@@ -133,4 +135,9 @@ process.on('message', function(msg){
     dbg('Unknown message received: '+util.inspect(msg))
   };
 });
+
+if (process.argv[2]=='start'){startServer()};
+
+exports.start = startServer;
+exports.stop = stopServer;
 
