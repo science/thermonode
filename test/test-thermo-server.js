@@ -36,27 +36,39 @@ var thermoClient = require('../thermo-client');
 // thermoServer.send('start');
 
 
+//consts
+//Basic read test json files
+var ORIGINAL_BASIC_JSON = 'test.json.orig';
 
+
+//Test basic GET from JSON config file
 //exports['read'] = nodeunit.testCase({
 module.exports = {
   setUp: function (callback) {
     var file = 'test.json';
     this.testFilename = file;
-    utils.copyFile('test.json.orig','test.json',function(){
-    callback();
+    utils.copyFile(ORIGINAL_BASIC_JSON, file,function(){
+      callback();
     });
   },
   tearDown: function (callback) {
     fs.unlinkSync(this.testFilename);
     callback();
   },
-  test1: function (test) {
+  basicGetDelayedConfigFile: function (test) {
+    var WAIT_TIME_MS = 500;
     var file = this.testFilename;
+    var startTime = Date.now();
     thermoClient.getConfigFileFromURL('localhost','8080','/watchfile',file, function(obj){
-      dbg(util.inspect(obj));
+      var get_file = fs.readFileSync(file, {"encoding":"utf8"});
+      var orig_file = fs.readFileSync(ORIGINAL_BASIC_JSON, {"encoding":"utf8"});
+      test.equal(get_file, orig_file, "Original file and request file are not identical.");
+      var endTime = Date.now();
+      test.ok(endTime > startTime+WAIT_TIME_MS, "Delayed Get test took less than specified minimum wait time to run.");
       test.done();
     });
-    setTimeout(function() {utils.touchFileSync(file)}, 500);
+    //we delay a bit and then modify the config file which should trigger file return to waiting request
+    setTimeout(function() {utils.touchFileSync(file)}, WAIT_TIME_MS);
   },
    test2: function (test) {
      test.equal(2,2);
