@@ -5,11 +5,16 @@ Then it is supposed to update it's internal systems to change the status of the 
 based on inputs from the thermometer compared to the configuration file information
 */
 
+//INCLUDES
 var restify = require('restify');
 var dbg = require('./utils').debuggerMsg;
 var thermoServer = require('./thermo-server');
 var testCallback = null;
+var StringDecoder = require('string_decoder').StringDecoder;
+var fs = require('fs');
 
+//CONSTANTS
+var BOOT_FILE_NAME = "boot.json";
 
 var receiveConfigFileFromURL = function(err,req,res,obj){
   if (err) {
@@ -38,6 +43,20 @@ var getConfigFileFromURL = function(server, port, path, file, callback){
 }
 
 
+//open boot file to find location of config URL for full start up
+var getBootFileAsJson = function(file){
+  var decoder = new StringDecoder;
+  var buffer = fs.readFileSync(file);
+  var data = decoder.write(buffer);
+  var bootConfig = JSON.parse(data);
+  return bootConfig;
+}
+
+
+
+
+
+exports.getBootFileAsJson = getBootFileAsJson;
 exports.getConfigFileFromURL = getConfigFileFromURL;
 
 
@@ -77,15 +96,15 @@ File formats
 
 boot.json
 {
-  "config-obtain": {
+  "config-source": {
     "immediate-polling-seconds": 300,
-    "config-url-immediate": "http://server/now/backbedroom.json"
-    "config-url-watch": "http://server/watchfile/backbedroom.json"
+    "config-url": "http://localhost:8080/now/backbedroom.json"
+    "config-url-watch": "http://localhost:8080/watchfile/backbedroom.json"
     "watch-timeout-minutes": 780
   }
-  "safety-parameters": {
+  "operating-parameters": {
     "max-temp-f": 80,
-    "max-operation-minutes": 60
+    "max-operating-minutes": 60
   }
 }
 
@@ -102,34 +121,33 @@ url and then hang out on config-url-watch will update immediately upon remote fi
       {"start": "6:30 am", "stop": "10:00 am", "temp-f": 68},
       {"start": "10:00 am", "stop": "6:00 pm", "temp-f": 62},
       {"start": "7:00 pm", "stop": "11:00 pm", "temp-f": 70},
-      {"start": "11:00 pm", "stop": "5:30am", "temp-f": 62}
+      {"start": "11:00 pm", "stop": "5:30 am", "temp-f": 62}
   ]}},
   "weekly-schedule": {
     ["monday".."sunday"]: {"times-of-operation": [
       {"start": "6:30 am", "stop": "10:00 am", "temp-f": 68},
       {"start": "10:00 am", "stop": "6:00 pm", "temp-f": 62},
       {"start": "7:00 pm", "stop": "11:00 pm", "temp-f": 70},
-      {"start": "11:00 pm", "stop": "5:30am", "temp-f": 62}
+      {"start": "11:00 pm", "stop": "5:30 am", "temp-f": 62}
   ]}},
   "workweekly-schedule": {
     ["workday"|"weekend"]: {"times-of-operation": [
       {"start": "6:30 am", "stop": "10:00 am", "temp-f": 68},
       {"start": "10:00 am", "stop": "6:00 pm", "temp-f": 62},
       {"start": "7:00 pm", "stop": "11:00 pm", "temp-f": 70},
-      {"start": "11:00 pm", "stop": "5:30am", "temp-f": 62}
+      {"start": "11:00 pm", "stop": "5:30 am", "temp-f": 62}
   ]}},
 }
 
 schedule notes:
   If there is a gap between one end time and the following start time, heater will be OFF during that period
-  If a scheduled time extends to the following day, it overrides any settings for the following day until it stops/expires
-
+  If a scheduled time extends to the following day (or over a following time period of the same day),
+    it overrides any settings for the following day/time period until it stops/expires
 */
 
 
 /*
-Command sets for relay and thermometer
-
+Command line entries for relay and thermometer hardware
 
 Init for Relay
   gpio mode 0 out

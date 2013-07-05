@@ -6,14 +6,13 @@ var DEBUG_LEVEL = 10;
 
 // from http://stackoverflow.com/questions/3885817/how-to-check-if-a-number-is-float-or-integer
 var isInt = function (n) {
-   return n===+n && n===(n|0);
+  return n===+n && n===(n|0);
 }
 
 //write debug messages to stderr using node debug log method
 var debuggerMsg = function (debugMsg, level){
-  if (isInt(level)) { //do nothing
-  }
-  else { level = 10}
+  // set level to 10 if not provided or is not a number
+  if (!isInt(level)) {level = 10}
   //print debug message if debuggingLevel warrants it
   if (DEBUG_LEVEL >= level){
     dbgmsg(debugMsg);
@@ -24,6 +23,7 @@ var touchFileSync = function(file){
   fs.utimesSync(file, new Date(), new Date());
 }
 
+//Copy a file from source to target
 var copyFile = function(source, target, cb) {
   var cbCalled = false;
 

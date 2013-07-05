@@ -1,0 +1,12 @@
+{
+  "config-source": {
+    "immediate-polling-seconds": 300,
+    "config-url": "http://localhost:8080/now/backbedroom.json",
+    "config-url-watch": "http://localhost:8080/watchfile/backbedroom.json",
+    "watch-timeout-minutes": 780
+  },
+  "operating-parameters": {
+    "max-temp-f": 80,
+    "max-operating-minutes": 60
+  }
+}
