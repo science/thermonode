@@ -27,6 +27,7 @@ var fs = require('fs');
 var util = require('util');
 var StringDecoder = require('string_decoder').StringDecoder;
 var dbg = require('./utils').debuggerMsg;
+var getDateTimeStr = require('./utils').getDateTimeStr;
 
 // constants
 var FILE_WATCH_TIMEOUT_MSEC = 12*60*60*1000 // each file watch process should wait no longer than 12 hours before giving up and returning nothing
@@ -55,7 +56,7 @@ var getFileOnChange = function (event,filename){
         // get file contents
         var data = fs.readFileSync(filename, {"encoding":"utf8"});
         var response = files[filename].res;
-        dbg('Returning new contents: '+filename);
+        dbg(getDateTimeStr()+' File: '+filename);
         response.write(data);
         response.end();
       });
@@ -75,6 +76,7 @@ function watchFile(filename, req, res, next) {
 }
 
 // kicks off long running process to watch for file changes
+// and return file contents to waiting HTTP client when change is detected
 function watchFileResponse(req, res, next) {
   res.setTimeout(FILE_WATCH_TIMEOUT_MSEC);
   res.on('close', function(){dbg('unexpected close');});
@@ -93,14 +95,38 @@ function watchFileResponse(req, res, next) {
   }
 }
 
+//simple return function - immediately return contents of file requested
+function getFileResponse(req, res, next) {
+  res.on('close', function(){dbg('unexpected close');});
+  filename = req.params.name;
+  if (filename && fs.existsSync(filename)) {
+    fileInfo = fs.statSync(filename)
+    dbg("File mtime: "+fileInfo.mtime);
+    var data = fs.readFileSync(filename, {"encoding":"utf8"});
+    dbg(getDateTimeStr()+' - Returning file: '+filename);
+    res.write(data);
+    res.end();
+  }
+  else {
+    dbg('Get file not found:' + filename||'[undefined]');
+    res.statusCode = 404;
+    //response.send('{"code": "FileNotFound", "message":"File specified could not be found"}');
+    res.end();
+  }
+}
+
+
 var startServer = function (callBack) {
-  // restify provided hack to manage curl as a client
+  // this line is a restify docs-provided hack to support curl as a client
   server.pre(restify.pre.userAgentConnection());
   server.get('/watchfile/:name', watchFileResponse);
   server.head('/watchfile/:name', watchFileResponse);
+  server.get('/now/:name', getFileResponse)
+  server.head('/now/:name', getFileResponse)
 
   server.listen(8080, function() {
     console.log('%s listening at %s', server.name, server.url);
+    console.log('Current working directory is %s', process.cwd());
     if (typeof process.send == 'function'){process.send('started');};
     if (typeof callBack == 'function'){callBack();};
   });
